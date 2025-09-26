@@ -1,4 +1,24 @@
-page-break-after:always;
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Barcode A4 Generator</title>
+  <!-- JsBarcode and html2pdf -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; padding: 12px; }
+    .controls { display:flex; gap:8px; align-items:center; margin-bottom:12px; }
+    input[type="text"], input[type="number"]{ padding:6px; font-size:14px; }
+
+    .book { display:block; }
+    .page {
+      width:21cm; height:29.7cm; /* A4 */
+      box-sizing:border-box;
+      padding:0.5cm;
+      background:white;
+      page-break-after:always;
       overflow:hidden;
     }
 
@@ -20,7 +40,6 @@ page-break-after:always;
   </style>
 </head>
 <body>
-  <h1>SK FASHION</h1>
   <h2>Barcode A4 Generator</h2>
   <div class="controls">
     <label>Number / Code: <input id="codeInput" type="text" placeholder="Enter number or code"></label>
@@ -35,3 +54,93 @@ page-break-after:always;
 
   <script>
     const PAGE_WIDTH_CM = 21, PAGE_HEIGHT_CM = 29.7, PAGE_PADDING_CM = 0.5;
+    const LABEL_W_CM = 3, LABEL_H_CM = 1.5, GAP_CM = 0.2;
+
+    const usableW = PAGE_WIDTH_CM - PAGE_PADDING_CM*2;
+    const usableH = PAGE_HEIGHT_CM - PAGE_PADDING_CM*2;
+    const cols = Math.floor((usableW + GAP_CM) / (LABEL_W_CM + GAP_CM));
+    const rows = Math.floor((usableH + GAP_CM) / (LABEL_H_CM + GAP_CM));
+    const labelsPerPage = cols * rows;
+
+    const book = document.getElementById('book');
+    let pages = [], totalLabels = 0;
+
+    function createPage(){
+      const page = document.createElement('div');
+      page.className = 'page';
+      const labels = document.createElement('div');
+      labels.className = 'labels';
+      page.appendChild(labels);
+      book.appendChild(page);
+      pages.push(labels);
+      return labels;
+    }
+
+    function ensurePageForIndex(index){
+      const pageIndex = Math.floor(index / labelsPerPage);
+      while(pages.length <= pageIndex) createPage();
+      return pages[pageIndex];
+    }
+
+    createPage();
+
+    function addLabels(code, qty){
+      if(!code) return alert('Please enter a code/number.');
+      qty = parseInt(qty) || 1;
+      for(let i=0;i<qty;i++){
+        const idx = totalLabels + i;
+        const container = ensurePageForIndex(idx);
+        const label = document.createElement('div');
+        label.className = 'label';
+        const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+        svg.setAttribute('viewBox','0 0 300 150');
+        label.appendChild(svg);
+        container.appendChild(label);
+        try{
+          JsBarcode(svg, String(code), {
+            format: 'CODE128',
+            displayValue: true,     // ✅ show number under barcode
+            fontSize: 18,
+            textMargin: 2,
+            width: 1,
+            height: 60,
+            margin: 0
+          });
+        }catch(e){
+          svg.innerHTML = '<text x="10" y="20">'+String(code)+'</text>';
+        }
+      }
+      totalLabels += qty;
+    }
+
+    function downloadPDF(){
+      const opt = {
+        margin: 0,
+        filename: 'barcodes.pdf',
+        enableLinks: false,
+        image: { type: 'jpeg', quality: 1 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'cm', format: 'a4', orientation: 'portrait' }
+      };
+      html2pdf().set(opt).from(book).save();
+    }
+
+    document.getElementById('addBtn').addEventListener('click', ()=>{
+      const code = document.getElementById('codeInput').value.trim();
+      const qty = document.getElementById('qtyInput').value;
+      addLabels(code, qty);
+    });
+    document.getElementById('downloadBtn').addEventListener('click', ()=>{
+      if(totalLabels===0 && !confirm('No labels added yet. Create empty PDF?')) return;
+      downloadPDF();
+    });
+    document.getElementById('clearBtn').addEventListener('click', ()=>{
+      if(!confirm('Clear all pages and labels?')) return;
+      book.innerHTML = '';
+      pages = [];
+      totalLabels = 0;
+      createPage();
+    });
+  </script>
+</body>
+</html>
