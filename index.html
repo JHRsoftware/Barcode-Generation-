@@ -15,21 +15,28 @@
     .page {
       width:21cm; height:29.7cm; /* A4 */
       box-sizing:border-box;
-      padding:0.5cm;
+      padding:0; /* no padding for tight layout */
       background:white;
       page-break-after:always;
       overflow:hidden;
     }
 
-    .labels { display:flex; flex-wrap:wrap; align-content:flex-start; gap:0.2cm; }
+    .labels {
+      display:flex;
+      flex-wrap:wrap;
+      align-content:flex-start;
+      gap:0; /* no gap between labels */
+    }
+
     .label {
       width:3cm; height:1.5cm;
       box-sizing:border-box;
       display:flex;
       align-items:center;
       justify-content:center;
-      border: 1px dashed #999; /* dashed lines for cutting */
-      padding:0.05cm;
+      border: 1px dashed #999; /* dashed line for cutting */
+      padding:0.05cm; /* small inner padding */
+      margin:0;
     }
 
     .label svg { width:100%; height:100%; }
@@ -48,18 +55,16 @@
     <button id="downloadBtn">Download PDF</button>
     <button id="clearBtn">Clear All</button>
   </div>
-  <div class="note">Label size: <strong>3cm × 1.5cm</strong>. Each label has dashed borders for easy cutting. Barcode bars have white space between them.</div>
+  <div class="note">Label size: <strong>3cm × 1.5cm</strong>. Dashed border for easy cutting. Barcode number displayed above barcode.</div>
 
   <div id="book" class="book"></div>
 
   <script>
-    const PAGE_WIDTH_CM = 21, PAGE_HEIGHT_CM = 29.7, PAGE_PADDING_CM = 0.5;
-    const LABEL_W_CM = 3, LABEL_H_CM = 1.5, GAP_CM = 0.2;
+    const PAGE_WIDTH_CM = 21, PAGE_HEIGHT_CM = 29.7;
+    const LABEL_W_CM = 3, LABEL_H_CM = 1.5;
 
-    const usableW = PAGE_WIDTH_CM - PAGE_PADDING_CM*2;
-    const usableH = PAGE_HEIGHT_CM - PAGE_PADDING_CM*2;
-    const cols = Math.floor((usableW + GAP_CM) / (LABEL_W_CM + GAP_CM));
-    const rows = Math.floor((usableH + GAP_CM) / (LABEL_H_CM + GAP_CM));
+    const cols = Math.floor(PAGE_WIDTH_CM / LABEL_W_CM);
+    const rows = Math.floor(PAGE_HEIGHT_CM / LABEL_H_CM);
     const labelsPerPage = cols * rows;
 
     const book = document.getElementById('book');
@@ -99,14 +104,14 @@
         try{
           JsBarcode(svg, String(code), {
             format: 'CODE128',
-            displayValue: true,      // show number below barcode
+            displayValue: true,
             fontSize: 14,
             textMargin: 2,
             width: 1,
             height: 60,
             margin: 0,
-            lineColor: "#000000",    // black bars
-            background: "#FFFFFF"    // white between bars
+            lineColor: "#000000",
+            background: "#FFFFFF"
           });
         }catch(e){
           svg.innerHTML = '<text x="10" y="20">'+String(code)+'</text>';
@@ -121,7 +126,7 @@
         filename: 'barcodes.pdf',
         enableLinks: false,
         image: { type: 'jpeg', quality: 1 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
+        html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#FFFFFF' },
         jsPDF: { unit: 'cm', format: 'a4', orientation: 'portrait' }
       };
       html2pdf().set(opt).from(book).save();
