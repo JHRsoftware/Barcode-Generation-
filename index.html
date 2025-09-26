@@ -1,153 +1,154 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Barcode A4 Generator</title>
-  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
-  <style>
-    body { font-family: Arial, Helvetica, sans-serif; padding: 12px; }
-    .controls { display:flex; gap:8px; align-items:center; margin-bottom:12px; }
-    input[type="text"], input[type="number"]{ padding:6px; font-size:14px; }
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Barcode A4 Generator</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+<style>
+body { font-family: Arial, Helvetica, sans-serif; padding: 12px; }
+.controls { display:flex; gap:8px; align-items:center; margin-bottom:12px; }
+input[type="text"], input[type="number"]{ padding:6px; font-size:14px; }
 
-    .book { display:block; }
-    .page {
-      width:21cm; height:29.7cm; /* A4 */
-      box-sizing:border-box;
-      padding:0; /* no padding for tight layout */
-      background:white;
-      page-break-after:always;
-      overflow:hidden;
-    }
+.book { display:block; }
+.page {
+  width:21cm; height:29.7cm;
+  box-sizing:border-box;
+  padding:1cm; /* page margin */
+  background:white;
+  page-break-after:always;
+  overflow:hidden;
+}
 
-    .labels {
-      display:flex;
-      flex-wrap:wrap;
-      align-content:flex-start;
-      gap:0; /* no gap between labels */
-    }
+.labels {
+  display:flex;
+  flex-wrap:wrap;
+  align-content:flex-start;
+  gap:0; /* no gap between labels */
+}
 
-    .label {
-      width:3cm; height:1.5cm;
-      box-sizing:border-box;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      border: 1px dashed #999; /* dashed line for cutting */
-      padding:0.05cm; /* small inner padding */
-      margin:0;
-    }
+.label {
+  width:3cm; height:1.5cm;
+  box-sizing:border-box;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border: 1px dashed #999; /* cut line */
+  padding:0.2cm; /* inner margin for safety */
+  margin:0;
+}
 
-    .label svg { width:100%; height:100%; }
+.label svg { width:100%; height:100%; }
 
-    button { padding:8px 12px; cursor:pointer; }
-    .note { margin-top:8px; color:#333; font-size:13px; }
-  </style>
+button { padding:8px 12px; cursor:pointer; }
+.note { margin-top:8px; color:#333; font-size:13px; }
+</style>
 </head>
 <body>
-  <h1>SK FASHION</h1>
-  <h2>Barcode A4 Generator</h2>
-  <div class="controls">
-    <label>Number / Code: <input id="codeInput" type="text" placeholder="Enter number or code"></label>
-    <label>Qty: <input id="qtyInput" type="number" value="1" min="1"></label>
-    <button id="addBtn">Add</button>
-    <button id="downloadBtn">Download PDF</button>
-    <button id="clearBtn">Clear All</button>
-  </div>
-  <div class="note">Label size: <strong>3cm × 1.5cm</strong>. Dashed border for easy cutting. Barcode number displayed above barcode.</div>
+<h1>SK FASHION</h1>
+<h2>Barcode A4 Generator</h2>
+<div class="controls">
+<label>Number / Code: <input id="codeInput" type="text" placeholder="Enter number or code"></label>
+<label>Qty: <input id="qtyInput" type="number" value="1" min="1"></label>
+<button id="addBtn">Add</button>
+<button id="downloadBtn">Download PDF</button>
+<button id="clearBtn">Clear All</button>
+</div>
+<div class="note">Label size: <strong>3cm × 1.5cm</strong>. Dashed border for easy cutting. Barcode number displayed above barcode.</div>
+<div id="book" class="book"></div>
 
-  <div id="book" class="book"></div>
+<script>
+const PAGE_WIDTH_CM = 21, PAGE_HEIGHT_CM = 29.7, PAGE_MARGIN_CM = 1;
+const LABEL_W_CM = 3, LABEL_H_CM = 1.5;
 
-  <script>
-    const PAGE_WIDTH_CM = 21, PAGE_HEIGHT_CM = 29.7;
-    const LABEL_W_CM = 3, LABEL_H_CM = 1.5;
+const usableW = PAGE_WIDTH_CM - PAGE_MARGIN_CM*2;
+const usableH = PAGE_HEIGHT_CM - PAGE_MARGIN_CM*2;
+const cols = Math.floor(usableW / LABEL_W_CM);
+const rows = Math.floor(usableH / LABEL_H_CM);
+const labelsPerPage = cols * rows;
 
-    const cols = Math.floor(PAGE_WIDTH_CM / LABEL_W_CM);
-    const rows = Math.floor(PAGE_HEIGHT_CM / LABEL_H_CM);
-    const labelsPerPage = cols * rows;
+const book = document.getElementById('book');
+let pages = [], totalLabels = 0;
 
-    const book = document.getElementById('book');
-    let pages = [], totalLabels = 0;
+function createPage(){
+  const page = document.createElement('div');
+  page.className = 'page';
+  const labels = document.createElement('div');
+  labels.className = 'labels';
+  page.appendChild(labels);
+  book.appendChild(page);
+  pages.push(labels);
+  return labels;
+}
 
-    function createPage(){
-      const page = document.createElement('div');
-      page.className = 'page';
-      const labels = document.createElement('div');
-      labels.className = 'labels';
-      page.appendChild(labels);
-      book.appendChild(page);
-      pages.push(labels);
-      return labels;
-    }
+function ensurePageForIndex(index){
+  const pageIndex = Math.floor(index / labelsPerPage);
+  while(pages.length <= pageIndex) createPage();
+  return pages[pageIndex];
+}
 
-    function ensurePageForIndex(index){
-      const pageIndex = Math.floor(index / labelsPerPage);
-      while(pages.length <= pageIndex) createPage();
-      return pages[pageIndex];
-    }
+createPage();
 
-    createPage();
-
-    function addLabels(code, qty){
-      if(!code) return alert('Please enter a code/number.');
-      qty = parseInt(qty) || 1;
-      for(let i=0;i<qty;i++){
-        const idx = totalLabels + i;
-        const container = ensurePageForIndex(idx);
-        const label = document.createElement('div');
-        label.className = 'label';
-        const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
-        svg.setAttribute('viewBox','0 0 300 150');
-        label.appendChild(svg);
-        container.appendChild(label);
-        try{
-          JsBarcode(svg, String(code), {
-            format: 'CODE128',
-            displayValue: true,
-            fontSize: 14,
-            textMargin: 2,
-            width: 1,
-            height: 60,
-            margin: 0,
-            lineColor: "#000000",
-            background: "#FFFFFF"
-          });
-        }catch(e){
-          svg.innerHTML = '<text x="10" y="20">'+String(code)+'</text>';
-        }
-      }
-      totalLabels += qty;
-    }
-
-    function downloadPDF(){
-      const opt = {
+function addLabels(code, qty){
+  if(!code) return alert('Please enter a code/number.');
+  qty = parseInt(qty) || 1;
+  for(let i=0;i<qty;i++){
+    const idx = totalLabels + i;
+    const container = ensurePageForIndex(idx);
+    const label = document.createElement('div');
+    label.className = 'label';
+    const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','0 0 300 150');
+    label.appendChild(svg);
+    container.appendChild(label);
+    try{
+      JsBarcode(svg, String(code), {
+        format: 'CODE128',
+        displayValue: true,
+        fontSize: 14,
+        textMargin: 2,
+        width: 1,
+        height: 60,
         margin: 0,
-        filename: 'barcodes.pdf',
-        enableLinks: false,
-        image: { type: 'jpeg', quality: 1 },
-        html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#FFFFFF' },
-        jsPDF: { unit: 'cm', format: 'a4', orientation: 'portrait' }
-      };
-      html2pdf().set(opt).from(book).save();
+        lineColor: "#000000",
+        background: "#FFFFFF"
+      });
+    }catch(e){
+      svg.innerHTML = '<text x="10" y="20">'+String(code)+'</text>';
     }
+  }
+  totalLabels += qty;
+}
 
-    document.getElementById('addBtn').addEventListener('click', ()=>{
-      const code = document.getElementById('codeInput').value.trim();
-      const qty = document.getElementById('qtyInput').value;
-      addLabels(code, qty);
-    });
-    document.getElementById('downloadBtn').addEventListener('click', ()=>{
-      if(totalLabels===0 && !confirm('No labels added yet. Create empty PDF?')) return;
-      downloadPDF();
-    });
-    document.getElementById('clearBtn').addEventListener('click', ()=>{
-      if(!confirm('Clear all pages and labels?')) return;
-      book.innerHTML = '';
-      pages = [];
-      totalLabels = 0;
-      createPage();
-    });
-  </script>
+function downloadPDF(){
+  const opt = {
+    margin: 0,
+    filename: 'barcodes.pdf',
+    enableLinks: false,
+    image: { type: 'jpeg', quality: 1 },
+    html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#FFFFFF' },
+    jsPDF: { unit: 'cm', format: 'a4', orientation: 'portrait' }
+  };
+  html2pdf().set(opt).from(book).save();
+}
+
+document.getElementById('addBtn').addEventListener('click', ()=>{
+  const code = document.getElementById('codeInput').value.trim();
+  const qty = document.getElementById('qtyInput').value;
+  addLabels(code, qty);
+});
+document.getElementById('downloadBtn').addEventListener('click', ()=>{
+  if(totalLabels===0 && !confirm('No labels added yet. Create empty PDF?')) return;
+  downloadPDF();
+});
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  if(!confirm('Clear all pages and labels?')) return;
+  book.innerHTML = '';
+  pages = [];
+  totalLabels = 0;
+  createPage();
+});
+</script>
 </body>
 </html>
